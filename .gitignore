@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Case working files (never commit recovered data)
+case1/
+carved/
+acquired/
+*.db
+*.crypt12
+*.crypt14
+*.crypt15
+messages.json
+report.html
+manifest.json
+
+# OS
+.DS_Store
+Thumbs.db
