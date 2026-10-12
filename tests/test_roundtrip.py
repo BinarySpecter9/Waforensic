@@ -91,6 +91,57 @@ def test_crypt_roundtrip():
     print("crypt: OK (round-trip + wrong-key rejection + key loading)")
 
 
+def test_crypt_realistic_headers():
+    """Real 2.26-style BackupPrefix headers: nested IV + header != 122 bytes.
+
+    The legacy IV@8/data@122 guesses must FAIL on these (proving the new
+    protobuf walk is what decrypts them), while decrypt() succeeds."""
+    key = os.urandom(32)
+    d = tempfile.mkdtemp()
+    dbp = os.path.join(d, "t.db")
+    original = make_test_db(dbp)
+    for builder, label in ((crypt.build_test_crypt15_realistic, "crypt15-nested"),
+                           (crypt.build_test_crypt14_realistic, "crypt14-nested")):
+        enc = builder(original, key)
+        # legacy guesses must fail on a realistic header
+        try:
+            crypt._gcm_decrypt(key, enc[8:24], enc[122:])
+            raise AssertionError("legacy IV@8/data@122 unexpectedly worked (%s)" % label)
+        except AssertionError:
+            raise
+        except Exception:
+            pass  # expected: auth fails
+        dec = crypt.decrypt(enc, key)
+        assert dec == original, "round-trip mismatch (%s)" % label
+        print("crypt [%s realistic header]: OK" % label)
+
+
+def test_crypt_key_repair():
+    """A single wrong hex digit in a typed key must be repaired automatically."""
+    key = os.urandom(32)
+    khex = key.hex()
+    d = tempfile.mkdtemp()
+    dbp = os.path.join(d, "t.db")
+    original = make_test_db(dbp)
+    enc = crypt.build_test_crypt15_realistic(original, key)
+    p = os.path.join(d, "m.crypt15")
+    o = os.path.join(d, "m.db")
+    with open(p, "wb") as f:
+        f.write(enc)
+    bad = khex[:10] + ("0" if khex[10] != "0" else "1") + khex[11:]
+    assert bad != khex and len(bad) == 64
+    crypt.decrypt_file(p, bad, o)  # repair path
+    with open(o, "rb") as f:
+        assert f.read() == original, "repaired key gave wrong plaintext"
+    # a fully wrong typed key must still fail loudly
+    try:
+        crypt.decrypt_file(p, os.urandom(32).hex(), o)
+        raise AssertionError("fully wrong key should fail")
+    except ValueError:
+        pass
+    print("crypt [key repair]: OK")
+
+
 def test_db_parse():
     d = tempfile.mkdtemp()
     dbp = os.path.join(d, "t.db")
@@ -119,6 +170,8 @@ def test_exif():
 if __name__ == "__main__":
     test_carve()
     test_crypt_roundtrip()
+    test_crypt_realistic_headers()
+    test_crypt_key_repair()
     test_db_parse()
     test_exif()
     print("ALL TESTS PASSED")

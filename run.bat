@@ -3,7 +3,7 @@ title WAForensic Engine
 cd /d "%~dp0"
 
 echo ================================================
-echo   WAForensic - WhatsApp Recovery Engine v0.1.3
+echo   WAForensic - WhatsApp Recovery Engine v0.1.4
 echo   100%% offline. Your data never leaves this PC.
 echo ================================================
 echo.
